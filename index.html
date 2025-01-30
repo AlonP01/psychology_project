@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>My experiment</title>
+    <script src="https://unpkg.com/jspsych@8.2.0"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2.1.0"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-image-keyboard-response@2.1.0"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-preload@2.1.0"></script>
+    <link href="https://unpkg.com/jspsych@8.2.0/css/jspsych.css" rel="stylesheet" type="text/css" />
+    <link rel="stylesheet" href="styles.css">
+
+  </head>
+  <body></body>
+  <script>
+
+    /* initialize jsPsych */
+    var jsPsych = initJsPsych({
+    on_finish: function() {
+        // Get all data, including responses and timing
+        var data = jsPsych.data.get().addToLast({
+            completion_time: new Date().toISOString()
+        });
+        
+        // Convert to CSV and download
+        var csv = data.csv();
+        downloadCSV(csv, "experiment_data_" + Date.now() + ".csv");
+    }
+});
+
+
+var timeline = [];
+
+/* Preload images */
+var preload = {
+  type: jsPsychPreload,
+};
+timeline.push(preload);
+
+const trial = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: `
+      <div id="first-line">On the next slide, you will read a statement, and rate how much you agree with it.</div>
+      <div id="second-line" style="visibility: hidden;">To continue, press Spacebar.</div>
+  `,
+  choices: "NO_KEYS",  // Initially, no keys are accepted
+  on_load: function () {
+    // After 2 seconds, reveal the second line
+    setTimeout(() => {
+      document.querySelector('#second-line').style.visibility = 'visible';
+      // Enable the spacebar as a valid response after the second line is shown
+      jsPsych.pluginAPI.getKeyboardResponse({
+        callback_function: function () {
+          jsPsych.finishTrial();  // End the trial when space is pressed
+        },
+        valid_responses: [' '],  // Spacebar is the only valid response
+        rt_method: 'performance',
+        persist: false
+      });
+    }, 2000);  // Delay the appearance of the second line by 2 seconds
+  }
+};
+timeline.push(trial);
+
+const trial2 = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: `
+      <div id="main-text">“Lorem ipsum dolor sit amet”</div>
+
+      <div id="radio-buttons" style="display: none;">
+  <label class="radio-label" data-number="1">
+        <input type="radio" name="choice" value="1">
+        <span></span>
+        <span class="label-text above">Totally Disagree</span>
+    </label>
+    <label class="radio-label" data-number="2">
+        <input type="radio" name="choice" value="2">
+        <span></span>
+    </label>
+    <label class="radio-label" data-number="3">
+        <input type="radio" name="choice" value="3">
+        <span></span>
+    </label>
+    <label class="radio-label" data-number="4">
+        <input type="radio" name="choice" value="4">
+        <span></span>
+    </label>
+    <label class="radio-label" data-number="5">
+        <input type="radio" name="choice" value="5">
+        <span></span>
+        <span class="label-text below">Totally Agree</span>
+    </label>
+</div>
+
+      <p id="press-space" style="display: none;">Press SPACE to continue...</p>
+  `,
+  choices: "NO_KEYS",  // Initially, no keys are accepted
+  on_load: function () {
+    let selected = false;
+
+    // Delay the appearance of radio buttons by 2 seconds
+    setTimeout(() => {
+      document.getElementById("radio-buttons").style.display = "block";  // Show the radio buttons
+      document.getElementById("123").style.display = "block";  // Show the labels
+    }, 2000);
+
+    // Add event listener for radio buttons
+    document.querySelectorAll('input[name="choice"]').forEach((radio) => {
+        radio.addEventListener("change", function () {
+    selected = true;
+    document.getElementById("press-space").style.display = "block";
+    // Add this line to save the rating
+    jsPsych.data.addToLast({rating: this.value});
+});
+    });
+
+    // Listen for the spacebar press to continue
+    document.addEventListener("keydown", function (event) {
+      if (selected && event.code === "Space") {
+        jsPsych.finishTrial();  // End the trial when space is pressed
+      }
+    });
+  }
+};
+timeline.push(trial2);
+
+// Helper function to download CSV data
+function downloadCSV(csv, filename) {
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (window.navigator.msSaveOrOpenBlob) {
+        // IE11
+        window.navigator.msSaveBlob(blob, filename);
+    } else {
+        // Other browsers
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+}
+
+// Start the experiment
+jsPsych.run(timeline);
+
+  </script>
+</html>
